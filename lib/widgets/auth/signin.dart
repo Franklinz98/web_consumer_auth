@@ -1,22 +1,40 @@
-import 'dart:developer';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:web_consumer_auth/backend/auth.dart' as backend;
 import 'package:web_consumer_auth/constants/colors.dart';
+import 'package:web_consumer_auth/models/user_model.dart';
 import 'package:web_consumer_auth/providers/auth_provider.dart';
 
-class SignIn extends StatelessWidget {
+class SignIn extends StatefulWidget {
   final AuthProvider authProvider;
   final switchWidget;
   final GlobalKey<ScaffoldState> scaffoldKey;
+
+  SignIn(
+      {Key key,
+      @required this.authProvider,
+      @required this.switchWidget,
+      @required this.scaffoldKey})
+      : super(key: key);
+
+  @override
+  _SignInState createState() => _SignInState();
+}
+
+class _SignInState extends State<SignIn> {
   final controllerEmail = TextEditingController();
   final controllerPassword = TextEditingController();
   final _formKey = GlobalKey<FormState>();
-
-  SignIn({Key key, @required this.authProvider, @required this.switchWidget, @required this.scaffoldKey})
-      : super(key: key);
+  Widget buttonChild = Text(
+    "ACEPTAR",
+    style: TextStyle(
+      fontFamily: "Roboto",
+      fontWeight: FontWeight.w500,
+      fontSize: 14,
+      color: Colors.white,
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -75,38 +93,11 @@ class SignIn extends StatelessWidget {
                     color: AppColors.ocean_green,
                     height: 46.0,
                     shape: StadiumBorder(),
-                    child: Text(
-                      "ACEPTAR",
-                      style: TextStyle(
-                        fontFamily: "Roboto",
-                        fontWeight: FontWeight.w500,
-                        fontSize: 14,
-                        color: Colors.white,
-                      ),
-                    ),
+                    child: buttonChild,
                     onPressed: () {
                       if (_formKey.currentState.validate()) {
                         // login request
-                        backend.login(
-                              controllerEmail.text,
-                              controllerPassword.text,
-                            )
-                            // succesful: save data and set state to connected
-                            .then((user) {
-                              _writePreferences(user);
-                              authProvider.connect(user.name, user.username);
-                              Navigator.pop(context, user);
-                            })
-                            // show error if it wasn't succesful
-                            .catchError(
-                          (error) {
-                            scaffoldKey.currentState.showSnackBar(
-                              SnackBar(
-                                content: Text(error.toString()),
-                              ),
-                            );
-                          },
-                        );
+                        _futureBuilder();
                       }
                     },
                   ),
@@ -126,14 +117,76 @@ class SignIn extends StatelessWidget {
                           color: AppColors.ocean_green,
                         ),
                       ),
-                      onPressed: this.switchWidget),
-                )
+                      onPressed: widget.switchWidget),
+                ),
               ],
             ),
           ),
         ),
       ),
     );
+  }
+
+// Get Future Builder
+  _futureBuilder() {
+    setState(() {
+      // Change Text for FutureBuilder
+      buttonChild = FutureBuilder<User>(
+        // Future: HTTP Request
+        future: backend.login(
+          controllerEmail.text,
+          controllerPassword.text,
+        ),
+        builder: (context, snapshot) {
+          // Succesful request: bind data
+          if (snapshot.hasData) {
+            User user = snapshot.data;
+            _writePreferences(user);
+            // Add callback for the end of build
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              widget.authProvider.connect(user.name, user.username);
+              Navigator.pop(context, user);
+            });
+            return Text(
+              "ACEPTAR",
+              style: TextStyle(
+                fontFamily: "Roboto",
+                fontWeight: FontWeight.w500,
+                fontSize: 14,
+                color: Colors.white,
+              ),
+            );
+          } else if (snapshot.hasError) {
+            // Add callback for the end of build
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              widget.scaffoldKey.currentState.showSnackBar(
+                SnackBar(
+                  content: Text(snapshot.error.toString()),
+                ),
+              );
+            });
+            return Text(
+              "ACEPTAR",
+              style: TextStyle(
+                fontFamily: "Roboto",
+                fontWeight: FontWeight.w500,
+                fontSize: 14,
+                color: Colors.white,
+              ),
+            );
+          }
+          // By default, show a loading spinner.
+          return SizedBox(
+            height: 24.0,
+            width: 24.0,
+            child: CircularProgressIndicator(
+              strokeWidth: 3.0,
+              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+            ),
+          );
+        },
+      );
+    });
   }
 
 // Write user data after login
