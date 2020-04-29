@@ -128,15 +128,7 @@ class _SignUpState extends State<SignUp> {
                       color: AppColors.ocean_green,
                       height: 46.0,
                       shape: StadiumBorder(),
-                      child: Text(
-                        "ACEPTAR",
-                        style: TextStyle(
-                          fontFamily: "Roboto",
-                          fontWeight: FontWeight.w500,
-                          fontSize: 14,
-                          color: Colors.white,
-                        ),
-                      ),
+                      child: buttonChild,
                       onPressed: () {
                         if (_formKey.currentState.validate()) {
                           // signup request
